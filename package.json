@@ -1,0 +1,16 @@
+{
+  "name": "campus360-tools",
+  "private": true,
+  "description": "Administrative, seeding, and validation tools for Campus360",
+  "scripts": {
+    "test": "npm run test:paths && npm run test:timetable",
+    "test:paths": "node tool/testSeedPaths.js",
+    "test:timetable": "node tool/testSeedTimetable.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

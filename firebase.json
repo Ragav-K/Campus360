@@ -1,0 +1,29 @@
+{
+  "firestore": {
+    "database": "default",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "hosting": {
+    "public": "dashboard",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [{ "key": "Cache-Control", "value": "max-age=300" }]
+      },
+      {
+        "comment": "HTML must never be cached, or a deploy ships new assets that the stale page never asks for. The root is served as '/', which '**/*.html' does not match — both patterns are needed.",
+        "source": "/",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+      },
+      {
+        "source": "**/*.html",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+      }
+    ]
+  }
+}

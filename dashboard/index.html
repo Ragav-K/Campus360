@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#2B3A8F" />
+    <title>Campus360 · Crowd Counter</title>
+    <!-- ?v= busts the 5-minute Cache-Control on css/js set in firebase.json.
+         Bump it whenever style.css or app.js changes. -->
+    <link rel="stylesheet" href="style.css?v=4" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>"
+    />
+  </head>
+  <body>
+    <!-- Sign in -->
+    <main id="login-view" class="view centered" hidden>
+      <form id="login-form" class="card login-card" autocomplete="on">
+        <div class="brand">
+          <div class="brand-mark">📡</div>
+          <div>
+            <h1>Campus360</h1>
+            <p class="muted">Crowd counter</p>
+          </div>
+        </div>
+
+        <label for="username">Username</label>
+        <input
+          id="username"
+          name="username"
+          type="text"
+          autocomplete="username"
+          placeholder="kpriet"
+          required
+          autofocus
+        />
+
+        <label for="password">Password</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          placeholder="••••••"
+          required
+        />
+
+        <p id="login-error" class="error" role="alert" hidden></p>
+
+        <button id="login-button" class="btn primary" type="submit">Sign in</button>
+      </form>
+    </main>
+
+    <!-- Counter -->
+    <div id="app-view" class="view" hidden>
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark small">📡</div>
+          <div>
+            <h1>Crowd counter</h1>
+            <p class="muted" id="signed-in-as"></p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <span id="connection" class="pill" title="Live connection status">Connecting…</span>
+          <button id="signout-button" class="btn ghost" type="button">Sign out</button>
+        </div>
+      </header>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="crowd" role="tab" type="button">Crowd counter</button>
+        <button class="tab" data-tab="print" role="tab" type="button">
+          Print queue <span id="queue-badge" class="badge" hidden>0</span>
+        </button>
+      </nav>
+
+      <p id="app-error" class="error banner" role="alert" hidden></p>
+
+      <!-- Shown when signed in without the counter role. -->
+      <section id="no-permission" class="card notice" hidden>
+        <h2>This account can't update counts</h2>
+        <p class="muted">
+          You're signed in, but this account doesn't hold the counter role, so the campus database
+          will reject any change. Sign in with the desk account instead.
+        </p>
+      </section>
+
+      <!-- Crowd counter -->
+      <div id="panel-crowd" class="panel">
+        <section id="locations" class="grid" aria-live="polite"></section>
+
+        <p id="empty" class="muted centered-text" hidden>
+          No countable locations are set up yet. Run the seed script to add them.
+        </p>
+
+        <footer class="foot muted">
+          Counts here are typed by a person. They feed Campus Pulse directly — students see changes
+          within a second.
+        </footer>
+      </div>
+
+      <!-- Print queue -->
+      <div id="panel-print" class="panel" hidden>
+        <div class="queue-toolbar">
+          <div class="filters" id="queue-filters">
+            <button class="pill-btn active" data-filter="active" type="button">Active</button>
+            <button class="pill-btn" data-filter="ready" type="button">Ready</button>
+            <button class="pill-btn" data-filter="done" type="button">Completed</button>
+          </div>
+          <span class="muted" id="queue-summary"></span>
+        </div>
+
+        <section id="orders" class="orders" aria-live="polite"></section>
+
+        <p id="orders-empty" class="muted centered-text" hidden>
+          No print orders in this view.
+        </p>
+
+        <footer class="foot muted">
+          Orders are sorted by when the student needs them — most urgent first. Overdue jobs are
+          flagged in red.
+        </footer>
+      </div>
+    </div>
+
+    <script type="module" src="app.js?v=6"></script>
+  </body>
+</html>

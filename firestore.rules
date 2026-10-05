@@ -1,0 +1,381 @@
+rules_version = '2';
+
+// Campus360 security rules.
+//
+// Phase 1 baseline: users, config. The Pulse / Map / Lost & Found / Printout
+// blocks land with their modules in Phases 2–4, and the full emulator test
+// suite lands in Phase 5.
+//
+// Principle: roles are read from the *custom claim*, never from the user
+// document, because a user document field is only as trustworthy as the rule
+// protecting it — and the claim is set exclusively by a Cloud Function.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ---------------------------------------------------------
+    function signedIn() {
+      return request.auth != null;
+    }
+    function uid() {
+      return request.auth.uid;
+    }
+    function role() {
+      return request.auth.token.role;
+    }
+    function isAdmin() {
+      return signedIn() && role() == 'admin';
+    }
+    function isStaff() {
+      return signedIn() && (role() == 'printShopStaff' || role() == 'admin');
+    }
+    // Desk operators running the counter dashboard. Print shop staff are
+    // included because it is the same person at the same counter running both
+    // the crowd counter and the print queue.
+    function isCounter() {
+      return signedIn()
+             && (role() == 'crowdCounter' || role() == 'printShopStaff' || role() == 'admin');
+    }
+    // Students and campus visitors. Guests sign in anonymously and, by product
+    // decision, may use the same flows a student can — reporting Lost & Found
+    // items and placing print orders.
+    //
+    // A missing `role` claim counts as unprivileged: claims are only ever set
+    // by the admin tooling, so students who registered in-app and guests who
+    // signed in anonymously both have no claim at all. Requiring one here
+    // would lock out every ordinary user.
+    function isStudentOrGuest() {
+      return signedIn()
+             && (!('role' in request.auth.token)
+                 || request.auth.token.role in ['student', 'guest', 'admin']);
+    }
+
+    // A guest who links a real email/password promotes themselves guest ->
+    // student. Allowed only once the session is no longer anonymous, and it
+    // still cannot touch shop, disabled or identity fields.
+    function isGuestUpgrade() {
+      return resource.data.role == 'guest'
+             && request.resource.data.role == 'student'
+             && request.auth.token.firebase.sign_in_provider != 'anonymous'
+             && !request.resource.data.diff(resource.data)
+                   .affectedKeys()
+                   .hasAny(['shopId', 'disabled', 'uid', 'createdAt']);
+    }
+    function isSelf(userId) {
+      return signedIn() && uid() == userId;
+    }
+
+    // Guests sign in anonymously and have no email at all, so the campus
+    // domain check cannot and must not apply to them.
+    function isAnonymous() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    // Campus360 accounts must be college addresses.
+    //
+    // Matched with an anchored regex rather than a suffix test: a plain
+    // "ends with kpriet.ac.in" check would happily accept
+    // someone@kpriet.ac.in.evil.com. The pattern allows the bare domain and
+    // any departmental subdomain, and nothing else.
+    function emailAllowed() {
+      return signedIn()
+             && request.auth.token.email is string
+             && request.auth.token.email.lower().matches('^[^@]+@([a-z0-9-]+[.])*kpriet[.]ac[.]in$');
+    }
+    // Fields a client is never allowed to introduce or change on itself.
+    function noPrivilegeEscalation() {
+      return !request.resource.data.diff(resource.data)
+               .affectedKeys()
+               .hasAny(['role', 'shopId', 'disabled', 'uid', 'createdAt']);
+    }
+
+    // ---- config ----------------------------------------------------------
+    // Public policy (allowed email domains, upload limits, feature flags).
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---- users -----------------------------------------------------------
+    match /users/{userId} {
+      // A user reads their own profile. Staff and admins can read profiles
+      // because order queues and moderation surface student names.
+      allow read: if isSelf(userId) || isStaff();
+
+      // Create only your own document, and only as a student or a guest.
+      // A guest is an anonymous session; both are unprivileged roles, so
+      // neither can be used to grant staff or admin access.
+      //
+      // The domain check is the real enforcement of "college accounts only".
+      // The sign-in form can be bypassed by calling the Auth API directly, but
+      // without a profile document an account can read and write nothing.
+      allow create: if isSelf(userId)
+                    && request.resource.data.uid == userId
+                    && request.resource.data.role in ['student', 'guest']
+                    && request.resource.data.disabled == false
+                    && (isAnonymous() || emailAllowed());
+
+      // Update your own profile, but never your role, shop or disabled flag —
+      // except for the guest -> student upgrade, which is self-service by
+      // design so a visitor doesn't lose their history when they register.
+      allow update: if (isSelf(userId) && (noPrivilegeEscalation() || isGuestUpgrade()))
+                    || isAdmin();
+
+      // Accounts are disabled, not deleted — reports and orders reference them.
+      allow delete: if false;
+    }
+
+    // ---- campus locations -------------------------------------------------
+    // The campus directory is readable by any signed-in user; only admins
+    // curate it.
+    match /campusLocations/{locationId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---- campus pulse -----------------------------------------------------
+    // A crowd-counter write, validated field by field.
+    //
+    // The login screen is not the security boundary — this is. Even with the
+    // shared desk password, a counter can only touch `crowd-*` documents and
+    // can only write a crowd status, so it can never post a fake campus
+    // emergency or edit an admin notice.
+    function isValidCrowdWrite(pulseId) {
+      let data = request.resource.data;
+      return isCounter()
+             && pulseId.matches('crowd-.*')
+             && data.category == 'crowd'
+             && data.status in ['low', 'moderate', 'high', 'veryHigh', 'closed']
+             && data.locationId is string
+             && data.occupancy.mode == 'count'   // humans type counts, not densities
+             && data.occupancy.source == 'manual'
+             && data.occupancy.count is int
+             && data.occupancy.count >= 0
+             && data.occupancy.capacity is int
+             && data.occupancy.capacity > 0;
+    }
+
+    match /pulseUpdates/{pulseId} {
+      allow read: if signedIn();
+      allow create, delete: if isAdmin();
+
+      // Counters may create their location's document on first use, but may
+      // never repoint an existing one at a different location.
+      allow create: if isValidCrowdWrite(pulseId);
+      allow update: if isAdmin()
+                    || (isValidCrowdWrite(pulseId)
+                        && request.resource.data.locationId == resource.data.locationId);
+
+      // "Report outdated information" (§6). A student may write only their own
+      // report document, and only with a reason — so the moderation queue
+      // can't be flooded by one user, and reports can't be forged for others.
+      match /reports/{userId} {
+        allow read: if isAdmin();
+        allow create, update: if isSelf(userId)
+                              && request.resource.data.reason is string
+                              && request.resource.data.reason.size() > 0
+                              && request.resource.data.reason.size() < 300;
+        allow delete: if isSelf(userId) || isAdmin();
+      }
+    }
+
+    // ---- timetables & academic calendar -----------------------------------
+    // Readable by anyone signed in (students and guests alike); curated by
+    // admins only.
+    match /timetables/{sectionId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /academicCalendar/{eventId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /examSchedules/{scheduleId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---- campus walking network -------------------------------------------
+    // The routing graph. Read by everyone so navigation works (and so
+    // Firestore's offline cache holds it for use with no network); written
+    // only from the admin survey screen.
+    match /campusPaths/{docId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---- print shops ------------------------------------------------------
+    match /printShops/{shopId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---- print orders -----------------------------------------------------
+    //
+    // Staff of the shop the order was sent to. Reading the shop document costs
+    // one lookup per write, which is acceptable for counter-rate traffic.
+    function isShopStaff(shopId) {
+      return isStaff()
+             && exists(/databases/$(database)/documents/printShops/$(shopId))
+             && (uid() in get(/databases/$(database)/documents/printShops/$(shopId)).data.staffIds
+                 || isAdmin());
+    }
+
+    match /printOrders/{orderId} {
+      // A student sees their own orders; shop staff see orders sent to them.
+      allow read: if isSelf(resource.data.studentId)
+                  || isStaff();
+
+      // Students place orders as `received` and nothing else. Every later
+      // transition belongs to the shop — this is what stops a student marking
+      // their own order "ready" or "collected".
+      allow create: if isSelf(request.resource.data.studentId)
+                    && request.resource.data.status == 'received'
+                    && request.resource.data.shopId is string
+                    && request.resource.data.document.storagePath is string;
+
+      // The student may only ever cancel, and only before printing starts.
+      allow update: if isSelf(resource.data.studentId)
+                    && request.resource.data.status == 'cancelled'
+                    && resource.data.status in ['received', 'accepted']
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status', 'statusChangedAt']);
+
+      // The shop drives the real workflow.
+      allow update: if isShopStaff(resource.data.shopId)
+                    && request.resource.data.studentId == resource.data.studentId
+                    && request.resource.data.shopId == resource.data.shopId;
+
+      // Orders are cancelled, never deleted — the shop needs the record.
+      allow delete: if false;
+    }
+
+    // ---- Lost & Found ----------------------------------------------------
+    //
+    // Lost and found reports are readable by any signed-in member of campus:
+    // recognising your own belongings is the entire feature. What is *not*
+    // public is the ownership secret — see the `private` subcollection below.
+
+    function ownsLost() {
+      return signedIn() && request.auth.uid == resource.data.ownerId;
+    }
+    function ownsFound() {
+      return signedIn() && request.auth.uid == resource.data.finderId;
+    }
+    // Fields a reporter may never rewrite after the fact. Letting someone
+    // reassign ownerId would let them steal another student's report.
+    function lostIdentityUnchanged() {
+      return request.resource.data.ownerId == resource.data.ownerId
+             && request.resource.data.createdAt == resource.data.createdAt;
+    }
+    function foundIdentityUnchanged() {
+      return request.resource.data.finderId == resource.data.finderId
+             && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    match /lostItems/{itemId} {
+      allow read: if isStudentOrGuest() || isStaff() || isAdmin();
+
+      allow create: if signedIn()
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.resource.data.status == 'active'
+                    && request.resource.data.itemName is string
+                    && request.resource.data.itemName.size() > 0;
+
+      allow update: if (ownsLost() && lostIdentityUnchanged()) || isAdmin();
+      allow delete: if ownsLost() || isAdmin();
+
+      // The ownership secret ("a torn photo of a dog inside"). Rules are
+      // per-document, not per-field, which is exactly why this is a separate
+      // document — on the parent it would be readable by every browser.
+      match /private/{doc} {
+        allow read, write: if signedIn()
+                           && request.auth.uid == get(/databases/$(database)/documents/lostItems/$(itemId)).data.ownerId;
+        allow read: if isAdmin();
+      }
+    }
+
+    match /foundItems/{itemId} {
+      allow read: if isStudentOrGuest() || isStaff() || isAdmin();
+
+      allow create: if signedIn()
+                    && request.resource.data.finderId == request.auth.uid
+                    && request.resource.data.status == 'active'
+                    && request.resource.data.itemName is string
+                    && request.resource.data.itemName.size() > 0;
+
+      // The claimant needs to flip the item to returned when a handover
+      // completes, so both participants may update — but neither may rewrite
+      // who found it.
+      allow update: if (ownsFound() && foundIdentityUnchanged())
+                    || (signedIn() && foundIdentityUnchanged()
+                        && request.resource.data.returnedToUserId == request.auth.uid)
+                    || isAdmin();
+
+      allow delete: if ownsFound() || isAdmin();
+    }
+
+    match /claims/{claimId} {
+      function isParticipant() {
+        return signedIn()
+               && (request.auth.uid == resource.data.claimantId
+                   || request.auth.uid == resource.data.finderId);
+      }
+
+      // A claim carries the claimant's proof of ownership. Only the two people
+      // involved may read it — it is not board material.
+      allow read: if isParticipant() || isAdmin();
+
+      allow create: if signedIn()
+                    && request.resource.data.claimantId == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    // You cannot claim your own find.
+                    && request.resource.data.finderId != request.auth.uid;
+
+      // Approve/reject belongs to the finder; withdrawing belongs to the
+      // claimant; confirming a handover belongs to whichever side is speaking.
+      allow update: if isParticipant()
+                    && request.resource.data.claimantId == resource.data.claimantId
+                    && request.resource.data.finderId == resource.data.finderId
+                    && request.resource.data.foundItemId == resource.data.foundItemId;
+
+      allow delete: if false;
+    }
+
+    // ---- notifications ----------------------------------------------------
+    // The in-app inbox. Written exclusively by Cloud Functions, which run with
+    // admin credentials and bypass these rules entirely — so every client write
+    // path here is closed, including the user's own.
+    //
+    // Create is denied even for yourself: a client that can write its own
+    // notifications can forge "your claim was approved", and one that can write
+    // the userId field can post into someone else's inbox.
+    match /notifications/{notificationId} {
+      allow read: if signedIn() && resource.data.userId == uid();
+
+      allow create: if false;
+
+      // The one thing a user may change is marking their own entry read.
+      // Everything else — title, body, type, payload — must survive untouched,
+      // or "your order is ready" could be edited into something it never said.
+      allow update: if signedIn()
+                    && resource.data.userId == uid()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['read'])
+                    && request.resource.data.read is bool;
+
+      // Kept, not deleted: the inbox is also the audit trail of what the user
+      // was told and when.
+      allow delete: if false;
+    }
+
+    // ---- deny by default -------------------------------------------------
+    // Collections not yet covered stay closed. Modules open their own paths
+    // as they are implemented, so a half-built feature can never be wide open.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

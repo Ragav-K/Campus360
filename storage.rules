@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// Campus360 Storage rules.
+//
+// Size and content-type limits are enforced *here*, not just in the client, so
+// an oversized or wrong-typed upload is rejected by the server (§31).
+//
+// Note on printDocs: student coursework is private. Staff never read these
+// paths directly — a Cloud Function verifies the staff↔shop↔order relationship
+// and mints a short-lived signed URL instead (see ARCHITECTURE.md §5).
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return signedIn() && request.auth.token.role == 'admin';
+    }
+    function isImage() {
+      return request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+    function underMb(n) {
+      return request.resource.size < n * 1024 * 1024;
+    }
+
+    // Lost & Found photos: publicly readable to signed-in users (the whole
+    // point is that other students recognise the item), written only by the
+    // reporter into their own prefix.
+    match /lostItems/{uid}/{itemId}/{file} {
+      allow read: if signedIn();
+      allow write: if isOwner(uid) && isImage() && underMb(5);
+    }
+
+    match /foundItems/{uid}/{itemId}/{file} {
+      allow read: if signedIn();
+      allow write: if isOwner(uid) && isImage() && underMb(5);
+    }
+
+    // Pulse images: everyone reads, admins write.
+    match /pulse/{pulseId}/{file} {
+      allow read: if signedIn();
+      allow write: if isAdmin() && isImage() && underMb(5);
+    }
+
+    // Print documents: owner-only. Staff access goes through a signed URL.
+    match /printDocs/{uid}/{orderId}/{file} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid)
+                   && underMb(20)
+                   && request.resource.contentType.matches('application/pdf|image/(jpeg|png)');
+    }
+
+    match /avatars/{uid}/{file} {
+      allow read: if signedIn();
+      allow write: if isOwner(uid) && isImage() && underMb(2);
+    }
+
+    // Everything else is closed.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

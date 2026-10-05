@@ -1,0 +1,108 @@
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors and IDEs
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*~
+.history/
+
+# AI coding assistants and local agent state
+.claude/
+.code/
+.codex/
+.cursor/
+.windsurf/
+.agent/
+.agents/
+AGENTS.md
+CLAUDE.md
+
+# Dart and Flutter generated files
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+flutter_*.png
+linked_*.ds
+
+# Flutter symbolication and obfuscation output
+app.*.symbols
+app.*.map.json
+
+# Android generated and machine-local files
+android/.gradle/
+android/.kotlin/
+android/captures/
+android/local.properties
+android/key.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+*.jks
+*.keystore
+
+# iOS/macOS generated and machine-local files
+ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Pods/
+ios/.symlinks/
+ios/Runner.xcworkspace/xcuserdata/
+ios/Runner.xcodeproj/xcuserdata/
+**/DerivedData/
+*.xcuserstate
+
+# Firebase local state and emulators
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+ui-debug.log
+*-debug.log
+
+# Node dependencies and package-manager logs
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+.secrets/
+*.json.key
+serviceAccount*.json
+*-firebase-adminsdk-*.json
+*.pem
+*.p12
+*.pfx
+
+# Temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.class
+*.pyc
+__pycache__/
+.build/
+.buildlog/
+.swiftpm/
+migrate_working_dir/

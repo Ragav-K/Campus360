@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "729205136583",
+    "project_id": "campus360-app",
+    "storage_bucket": "campus360-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:729205136583:android:cf040afce7b31e3707f2e2",
+        "android_client_info": {
+          "package_name": "com.campus360.campus360"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9wwtC5o1pLtlaXwrnU3CPuKpdfh-3Qh8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

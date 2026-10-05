@@ -1,0 +1,60 @@
+name: campus360
+description: Smart campus utility app — Pulse, Map, Lost & Found, Printout.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.4
+  firebase_storage: ^12.3.4
+  firebase_messaging: ^15.1.3
+  cloud_functions: ^5.1.3
+
+  # State & routing
+  flutter_riverpod: ^2.5.1
+  go_router: ^14.2.7
+
+  # Media / files
+  image_picker: ^1.1.2
+  image: ^4.2.0                 # compression + perceptual hash (Phase 3)
+  # Document picking for print orders (PDF/JPG/PNG).
+  #
+  # Requires android.builtInKotlin=true in android/gradle.properties: under
+  # AGP 9 this plugin stops applying the Kotlin Gradle Plugin and expects AGP
+  # to compile its Kotlin. With built-in Kotlin off, nothing does, and the
+  # build fails with "cannot find symbol: FilePickerPlugin".
+  file_picker: ^11.0.3
+  cached_network_image: ^3.4.1
+
+  # Offline map + navigation.
+  #
+  # NOT google_maps_flutter: Google's terms forbid caching or storing tiles, so
+  # it can never work without a network. flutter_map takes tiles from any
+  # source and lets us serve them from a local cache.
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geolocator: ^13.0.2 # GPS needs satellites, not network — works offline
+  path_provider: ^2.1.5 # tile cache directory
+  http: ^1.2.2 # tile fetching for the offline cache
+
+  # Misc
+  connectivity_plus: ^6.0.5
+  shared_preferences: ^2.3.2
+  intl: ^0.19.0
+  flutter_local_notifications: ^22.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
