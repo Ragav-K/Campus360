@@ -23,11 +23,13 @@ class AuthRepository {
   User? get currentAuthUser => _auth.currentUser;
   String? get uid => _auth.currentUser?.uid;
 
-  DocumentReference<Map<String, dynamic>> _userDoc(String uid) => _db.collection(Paths.users).doc(uid);
+  DocumentReference<Map<String, dynamic>> _userDoc(String uid) =>
+      _db.collection(Paths.users).doc(uid);
 
   /// Live profile stream. Emits null while the `onCreate` function is still
   /// writing the document immediately after registration.
-  Stream<AppUser?> watchUser(String uid) => _userDoc(uid).snapshots().map((snap) {
+  Stream<AppUser?> watchUser(String uid) =>
+      _userDoc(uid).snapshots().map((snap) {
         if (!snap.exists) return null;
         return _fromDoc(snap.id, snap.data()!);
       });
@@ -49,12 +51,14 @@ class AuthRepository {
     List<String> allowedDomains = const [],
   }) =>
       FailureMapper.guard(() async {
-        final cred = await _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
+        final cred = await _auth.signInWithEmailAndPassword(
+            email: email.trim(), password: password);
         final user = cred.user;
 
         // Same validator the form uses, so the two can never disagree.
         if (allowedDomains.isNotEmpty) {
-          final rejection = Validators.email(user?.email ?? email, allowedDomains: allowedDomains);
+          final rejection = Validators.email(user?.email ?? email,
+              allowedDomains: allowedDomains);
           if (rejection != null) {
             await _auth.signOut();
             throw AppFailure(
@@ -93,7 +97,9 @@ class AuthRepository {
       await doc.set({
         'uid': user.uid,
         'email': user.email,
-        'displayName': user.displayName ?? user.email?.split('@').first ?? (isGuest ? 'Guest' : ''),
+        'displayName': user.displayName ??
+            user.email?.split('@').first ??
+            (isGuest ? 'Guest' : ''),
         'role': isGuest ? UserRole.guest.name : UserRole.student.name,
         'isAnonymous': isGuest,
         'notificationPrefs': const NotificationPrefs().toMap(),
@@ -120,7 +126,8 @@ class AuthRepository {
     required String displayName,
   }) =>
       FailureMapper.guard(() async {
-        final cred = await _auth.createUserWithEmailAndPassword(email: email.trim(), password: password);
+        final cred = await _auth.createUserWithEmailAndPassword(
+            email: email.trim(), password: password);
         final user = cred.user;
         if (user == null) throw AppFailure.unknown;
 
@@ -146,9 +153,26 @@ class AuthRepository {
   /// a guest gets a real uid, so every `signedIn()` security rule keeps working
   /// and a guest owns their own reports and orders.
   Future<void> signInAsGuest() => FailureMapper.guard(() async {
-        final cred = await _auth.signInAnonymously();
-        final user = cred.user;
-        if (user != null) await ensureUserDocument(user);
+        try {
+          final cred = await _auth.signInAnonymously();
+          final user = cred.user;
+          if (user != null) await ensureUserDocument(user);
+        } on FirebaseAuthException catch (e) {
+          // Firebase reports a disabled Anonymous provider as
+          // ADMIN_ONLY_OPERATION / admin-restricted-operation. Treat the
+          // older operation-not-allowed code the same way in this specific
+          // flow, rather than showing the generic sign-in failure banner.
+          if (e.code == 'admin-restricted-operation' ||
+              e.code == 'operation-not-allowed') {
+            throw const AppFailure(
+              kind: FailureKind.auth,
+              message: 'Guest access is not enabled yet. Sign in with your '
+                  'college account for now.',
+              isRetryable: false,
+            );
+          }
+          rethrow;
+        }
       });
 
   /// Turns the current guest into a permanent account, **keeping the same uid**
@@ -171,7 +195,8 @@ class AuthRepository {
           );
         }
 
-        final credential = EmailAuthProvider.credential(email: email.trim(), password: password);
+        final credential = EmailAuthProvider.credential(
+            email: email.trim(), password: password);
         await user.linkWithCredential(credential);
         await user.updateDisplayName(displayName.trim());
 
@@ -202,7 +227,8 @@ class AuthRepository {
   Future<void> setSection(String? sectionId) => FailureMapper.guard(() async {
         final id = uid;
         if (id == null) throw AppFailure.permission;
-        await _userDoc(id).set({'sectionId': sectionId}, SetOptions(merge: true));
+        await _userDoc(id)
+            .set({'sectionId': sectionId}, SetOptions(merge: true));
       });
 
   Future<void> sendVerificationEmail() => FailureMapper.guard(() async {
@@ -239,17 +265,20 @@ class AuthRepository {
         await _auth.signOut();
       });
 
-  Future<void> updateProfile({String? displayName, String? photoUrl}) => FailureMapper.guard(() async {
+  Future<void> updateProfile({String? displayName, String? photoUrl}) =>
+      FailureMapper.guard(() async {
         final id = uid;
         if (id == null) throw AppFailure.permission;
         await _userDoc(id).update({
           if (displayName != null) 'displayName': displayName.trim(),
           if (photoUrl != null) 'photoUrl': photoUrl,
         });
-        if (displayName != null) await _auth.currentUser?.updateDisplayName(displayName.trim());
+        if (displayName != null)
+          await _auth.currentUser?.updateDisplayName(displayName.trim());
       });
 
-  Future<void> updateNotificationPrefs(NotificationPrefs prefs) => FailureMapper.guard(() async {
+  Future<void> updateNotificationPrefs(NotificationPrefs prefs) =>
+      FailureMapper.guard(() async {
         final id = uid;
         if (id == null) throw AppFailure.permission;
         await _userDoc(id).update({'notificationPrefs': prefs.toMap()});
@@ -280,13 +309,15 @@ class AuthRepository {
         role: UserRole.fromName(d['role'] as String?),
         photoUrl: d['photoUrl'] as String?,
         shopId: d['shopId'] as String?,
-        notificationPrefs: NotificationPrefs.fromMap(d['notificationPrefs'] as Map<String, dynamic>?),
+        notificationPrefs: NotificationPrefs.fromMap(
+            d['notificationPrefs'] as Map<String, dynamic>?),
         emailVerified: _auth.currentUser?.emailVerified ?? false,
         disabled: d['disabled'] as bool? ?? false,
         createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
         // Trust the live session over the stored flag — linking an account
         // clears it on the client before the document write lands.
-        isAnonymous: _auth.currentUser?.isAnonymous ?? (d['isAnonymous'] as bool? ?? false),
+        isAnonymous: _auth.currentUser?.isAnonymous ??
+            (d['isAnonymous'] as bool? ?? false),
         phone: d['phone'] as String?,
         sectionId: d['sectionId'] as String?,
       );

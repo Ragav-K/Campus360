@@ -15,7 +15,8 @@ abstract final class AppTheme {
       brightness: brightness,
       primary: isLight ? AppColors.primary : AppColors.primaryLight,
       onPrimary: Colors.white,
-      primaryContainer: isLight ? AppColors.primaryLight : AppColors.primaryDark,
+      primaryContainer:
+          isLight ? AppColors.primaryLight : AppColors.primaryDark,
       onPrimaryContainer: Colors.white,
       secondary: AppColors.accent,
       onSecondary: const Color(0xFF04262A),
@@ -23,24 +24,32 @@ abstract final class AppTheme {
       onError: Colors.white,
       surface: isLight ? AppColors.surfaceLight : AppColors.surfaceDark,
       onSurface: isLight ? AppColors.textLight : AppColors.textDark,
-      surfaceContainerHighest: isLight ? AppColors.surfaceAltLight : AppColors.surfaceAltDark,
+      surfaceContainerHighest:
+          isLight ? AppColors.surfaceAltLight : AppColors.surfaceAltDark,
       outline: isLight ? AppColors.borderLight : AppColors.borderDark,
     );
 
-    final base = ThemeData(useMaterial3: true, colorScheme: scheme, brightness: brightness);
+    final base = ThemeData(
+        useMaterial3: true, colorScheme: scheme, brightness: brightness);
     final muted = isLight ? AppColors.textMutedLight : AppColors.textMutedDark;
 
     return base.copyWith(
       scaffoldBackgroundColor: isLight ? AppColors.bgLight : AppColors.bgDark,
       textTheme: base.textTheme
           .copyWith(
-            displaySmall: base.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5),
-            headlineSmall: base.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.3),
-            titleLarge: base.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-            titleMedium: base.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            displaySmall: base.textTheme.displaySmall
+                ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5),
+            headlineSmall: base.textTheme.headlineSmall
+                ?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.3),
+            titleLarge: base.textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w700),
+            titleMedium: base.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
             bodyMedium: base.textTheme.bodyMedium?.copyWith(height: 1.45),
-            bodySmall: base.textTheme.bodySmall?.copyWith(color: muted, height: 1.4),
-            labelLarge: base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+            bodySmall:
+                base.textTheme.bodySmall?.copyWith(color: muted, height: 1.4),
+            labelLarge: base.textTheme.labelLarge
+                ?.copyWith(fontWeight: FontWeight.w600),
           )
           .apply(
             bodyColor: isLight ? AppColors.textLight : AppColors.textDark,
@@ -56,7 +65,8 @@ abstract final class AppTheme {
           fontWeight: FontWeight.w700,
           color: isLight ? AppColors.textLight : AppColors.textDark,
         ),
-        iconTheme: IconThemeData(color: isLight ? AppColors.textLight : AppColors.textDark),
+        iconTheme: IconThemeData(
+            color: isLight ? AppColors.textLight : AppColors.textDark),
       ),
       cardTheme: CardThemeData(
         color: scheme.surface,
@@ -65,19 +75,30 @@ abstract final class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: Radii.md,
-          side: BorderSide(color: scheme.outline.withValues(alpha: isLight ? 1 : 0.6)),
+          side: BorderSide(
+              color: scheme.outline.withValues(alpha: isLight ? 1 : 0.6)),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: isLight ? AppColors.surfaceLight : AppColors.surfaceAltDark,
-        contentPadding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.lg),
-        border: OutlineInputBorder(borderRadius: Radii.md, borderSide: BorderSide(color: scheme.outline)),
-        enabledBorder: OutlineInputBorder(borderRadius: Radii.md, borderSide: BorderSide(color: scheme.outline)),
-        focusedBorder: OutlineInputBorder(borderRadius: Radii.md, borderSide: BorderSide(color: scheme.primary, width: 1.6)),
-        errorBorder: const OutlineInputBorder(borderRadius: Radii.md, borderSide: BorderSide(color: AppColors.danger)),
-        focusedErrorBorder:
-            const OutlineInputBorder(borderRadius: Radii.md, borderSide: BorderSide(color: AppColors.danger, width: 1.6)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.lg),
+        border: OutlineInputBorder(
+            borderRadius: Radii.md,
+            borderSide: BorderSide(color: scheme.outline)),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: Radii.md,
+            borderSide: BorderSide(color: scheme.outline)),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: Radii.md,
+            borderSide: BorderSide(color: scheme.primary, width: 1.6)),
+        errorBorder: const OutlineInputBorder(
+            borderRadius: Radii.md,
+            borderSide: BorderSide(color: AppColors.danger)),
+        focusedErrorBorder: const OutlineInputBorder(
+            borderRadius: Radii.md,
+            borderSide: BorderSide(color: AppColors.danger, width: 1.6)),
         hintStyle: TextStyle(color: muted),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -107,8 +128,21 @@ abstract final class AppTheme {
         backgroundColor: scheme.surface,
         selectedColor: scheme.primary,
         showCheckmark: false,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-        padding: const EdgeInsets.symmetric(horizontal: Gap.md, vertical: Gap.sm),
+        // Keep chip text deterministic across Android versions. Leaving these
+        // colours unresolved can make unselected labels inherit white in light
+        // mode, which renders them invisible against the white chip surface.
+        labelStyle: TextStyle(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+        secondaryLabelStyle: TextStyle(
+          color: scheme.onPrimary,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+        padding:
+            const EdgeInsets.symmetric(horizontal: Gap.md, vertical: Gap.sm),
       ),
       navigationBarTheme: NavigationBarThemeData(
         height: 68,
@@ -118,14 +152,19 @@ abstract final class AppTheme {
         indicatorShape: const RoundedRectangleBorder(borderRadius: Radii.pill),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         labelTextStyle: WidgetStatePropertyAll(
-          TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isLight ? AppColors.textLight : AppColors.textDark),
+          TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isLight ? AppColors.textLight : AppColors.textDark),
         ),
       ),
-      dividerTheme: DividerThemeData(color: scheme.outline, thickness: 1, space: 1),
+      dividerTheme:
+          DividerThemeData(color: scheme.outline, thickness: 1, space: 1),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: scheme.surface,
         surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
         showDragHandle: true,
       ),
       dialogTheme: DialogThemeData(

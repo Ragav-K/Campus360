@@ -21,7 +21,10 @@ abstract final class FailureMapper {
     if (error is FirebaseFunctionsException) return _functions(error);
     if (error is FirebaseException) return _firebase(error);
 
-    return AppFailure(kind: FailureKind.unknown, message: AppFailure.unknown.message, debug: error.toString());
+    return AppFailure(
+        kind: FailureKind.unknown,
+        message: AppFailure.unknown.message,
+        debug: error.toString());
   }
 
   /// Wraps an async operation, rethrowing everything as [AppFailure].
@@ -36,23 +39,40 @@ abstract final class FailureMapper {
   static AppFailure _auth(FirebaseAuthException e) {
     final message = switch (e.code) {
       'invalid-email' => 'That email address looks incorrect.',
-      'user-disabled' => 'This account has been disabled. Contact the campus office.',
-      'user-not-found' || 'wrong-password' || 'invalid-credential' => 'Incorrect email or password.',
-      'email-already-in-use' => 'An account already exists for this email. Try signing in.',
+      'user-disabled' =>
+        'This account has been disabled. Contact the campus office.',
+      'user-not-found' ||
+      'wrong-password' ||
+      'invalid-credential' =>
+        'Incorrect email or password.',
+      'email-already-in-use' =>
+        'An account already exists for this email. Try signing in.',
       'weak-password' => 'Choose a stronger password — at least 8 characters.',
-      'too-many-requests' => 'Too many attempts. Wait a few minutes and try again.',
+      'too-many-requests' =>
+        'Too many attempts. Wait a few minutes and try again.',
       'network-request-failed' => AppFailure.offline.message,
-      'requires-recent-login' => 'Please sign in again to complete this action.',
+      'requires-recent-login' =>
+        'Please sign in again to complete this action.',
+      'admin-restricted-operation' =>
+        'Guest access is not enabled yet. Sign in with your college account for now.',
       'operation-not-allowed' => 'Email sign-in is not enabled for this app.',
       _ => 'Sign-in failed. Please try again.',
     };
-    final kind = e.code == 'network-request-failed' ? FailureKind.network : FailureKind.auth;
-    return AppFailure(kind: kind, message: message, debug: '${e.code}: ${e.message}');
+    final kind = e.code == 'network-request-failed'
+        ? FailureKind.network
+        : FailureKind.auth;
+    return AppFailure(
+      kind: kind,
+      message: message,
+      debug: '${e.code}: ${e.message}',
+      isRetryable: e.code != 'admin-restricted-operation',
+    );
   }
 
   static AppFailure _functions(FirebaseFunctionsException e) {
     // Callables carry our own domain codes in `details`, e.g. {code: 'otp/expired'}.
-    final domain = (e.details is Map) ? (e.details as Map)['code']?.toString() : null;
+    final domain =
+        (e.details is Map) ? (e.details as Map)['code']?.toString() : null;
 
     return switch (domain) {
       'otp/invalid' => const AppFailure(
@@ -61,7 +81,8 @@ abstract final class FailureMapper {
         ),
       'otp/expired' => const AppFailure(
           kind: FailureKind.otpExpired,
-          message: 'This pickup code has expired. Ask the student to refresh it in their app.',
+          message:
+              'This pickup code has expired. Ask the student to refresh it in their app.',
           isRetryable: false,
         ),
       'otp/used' => const AppFailure(
@@ -71,7 +92,8 @@ abstract final class FailureMapper {
         ),
       'otp/locked' => const AppFailure(
           kind: FailureKind.rateLimited,
-          message: 'Too many incorrect attempts. Verification is locked for this order.',
+          message:
+              'Too many incorrect attempts. Verification is locked for this order.',
           isRetryable: false,
         ),
       'order/badStatus' => const AppFailure(
@@ -107,7 +129,8 @@ abstract final class FailureMapper {
       'unavailable' || 'deadline-exceeded' => FailureKind.network,
       _ => FailureKind.unknown,
     };
-    return AppFailure(kind: kind, message: message, debug: '${e.code}: ${e.message}');
+    return AppFailure(
+        kind: kind, message: message, debug: '${e.code}: ${e.message}');
   }
 
   static AppFailure _firebase(FirebaseException e) {
@@ -117,7 +140,8 @@ abstract final class FailureMapper {
         'unauthorized' => "You don't have permission to upload this file.",
         'canceled' => 'Upload cancelled.',
         'quota-exceeded' => 'Storage is full. Contact the campus office.',
-        'retry-limit-exceeded' => 'The upload timed out. Check your connection and try again.',
+        'retry-limit-exceeded' =>
+          'The upload timed out. Check your connection and try again.',
         // On a download this means the file is gone; on an upload it means the
         // storage bucket itself is missing. Worded to be true of both, because
         // the mapper cannot tell which direction it was called from.
@@ -125,7 +149,10 @@ abstract final class FailureMapper {
           'That file is not in storage. If this keeps happening, tell the campus office.',
         _ => "The file couldn't be uploaded. Please try again.",
       };
-      return AppFailure(kind: FailureKind.upload, message: message, debug: '${e.code}: ${e.message}');
+      return AppFailure(
+          kind: FailureKind.upload,
+          message: message,
+          debug: '${e.code}: ${e.message}');
     }
 
     final message = switch (e.code) {
@@ -133,19 +160,26 @@ abstract final class FailureMapper {
       'not-found' => AppFailure.notFound.message,
       'unavailable' => AppFailure.offline.message,
       'already-exists' => 'That already exists.',
-      'aborted' || 'failed-precondition' => 'Someone else changed this first. Refresh and try again.',
+      'aborted' ||
+      'failed-precondition' =>
+        'Someone else changed this first. Refresh and try again.',
       'resource-exhausted' => 'The service is busy. Please try again shortly.',
-      'deadline-exceeded' => 'That took too long. Check your connection and try again.',
+      'deadline-exceeded' =>
+        'That took too long. Check your connection and try again.',
       _ => AppFailure.unknown.message,
     };
     final kind = switch (e.code) {
       'permission-denied' => FailureKind.permission,
       'not-found' => FailureKind.notFound,
       'unavailable' || 'deadline-exceeded' => FailureKind.network,
-      'aborted' || 'failed-precondition' || 'already-exists' => FailureKind.conflict,
+      'aborted' ||
+      'failed-precondition' ||
+      'already-exists' =>
+        FailureKind.conflict,
       'resource-exhausted' => FailureKind.rateLimited,
       _ => FailureKind.unknown,
     };
-    return AppFailure(kind: kind, message: message, debug: '${e.code}: ${e.message}');
+    return AppFailure(
+        kind: kind, message: message, debug: '${e.code}: ${e.message}');
   }
 }

@@ -1,5 +1,7 @@
 import 'package:campus360/core/errors/app_failure.dart';
+import 'package:campus360/core/errors/failure_mapper.dart';
 import 'package:campus360/core/utils/validators.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Widget tests that render the app need Firebase initialised, so those arrive
@@ -17,9 +19,12 @@ void main() {
 
     test('enforces allowed domains, including subdomains', () {
       const allowed = ['college.edu'];
-      expect(Validators.email('me@college.edu', allowedDomains: allowed), isNull);
-      expect(Validators.email('me@cs.college.edu', allowedDomains: allowed), isNull);
-      expect(Validators.email('me@gmail.com', allowedDomains: allowed), isNotNull);
+      expect(
+          Validators.email('me@college.edu', allowedDomains: allowed), isNull);
+      expect(Validators.email('me@cs.college.edu', allowedDomains: allowed),
+          isNull);
+      expect(
+          Validators.email('me@gmail.com', allowedDomains: allowed), isNotNull);
     });
 
     test('accepts any domain when none are configured', () {
@@ -30,33 +35,47 @@ void main() {
       const allowed = ['kpriet.ac.in'];
 
       test('accepts college addresses', () {
-        expect(Validators.email('24cs157@kpriet.ac.in', allowedDomains: allowed), isNull);
-        expect(Validators.email('kpriet@kpriet.ac.in', allowedDomains: allowed), isNull);
+        expect(
+            Validators.email('24cs157@kpriet.ac.in', allowedDomains: allowed),
+            isNull);
+        expect(Validators.email('kpriet@kpriet.ac.in', allowedDomains: allowed),
+            isNull);
       });
 
       test('accepts departmental subdomains', () {
-        expect(Validators.email('me@cs.kpriet.ac.in', allowedDomains: allowed), isNull);
+        expect(Validators.email('me@cs.kpriet.ac.in', allowedDomains: allowed),
+            isNull);
       });
 
       test('rejects outside addresses', () {
-        expect(Validators.email('me@gmail.com', allowedDomains: allowed), isNotNull);
-        expect(Validators.email('me@kpriet.com', allowedDomains: allowed), isNotNull);
+        expect(Validators.email('me@gmail.com', allowedDomains: allowed),
+            isNotNull);
+        expect(Validators.email('me@kpriet.com', allowedDomains: allowed),
+            isNotNull);
       });
 
-      test('rejects lookalike domains that merely contain the college domain', () {
+      test('rejects lookalike domains that merely contain the college domain',
+          () {
         // The dangerous case: a naive `endsWith` or `contains` check would let
         // these through and hand an outsider a college account.
-        expect(Validators.email('me@kpriet.ac.in.evil.com', allowedDomains: allowed), isNotNull);
-        expect(Validators.email('me@notkpriet.ac.in', allowedDomains: allowed), isNotNull);
-        expect(Validators.email('me@xkpriet.ac.in', allowedDomains: allowed), isNotNull);
+        expect(
+            Validators.email('me@kpriet.ac.in.evil.com',
+                allowedDomains: allowed),
+            isNotNull);
+        expect(Validators.email('me@notkpriet.ac.in', allowedDomains: allowed),
+            isNotNull);
+        expect(Validators.email('me@xkpriet.ac.in', allowedDomains: allowed),
+            isNotNull);
       });
 
       test('is case-insensitive, as email domains are', () {
-        expect(Validators.email('Me@KPRIET.AC.IN', allowedDomains: allowed), isNull);
+        expect(Validators.email('Me@KPRIET.AC.IN', allowedDomains: allowed),
+            isNull);
       });
 
       test('names the required domain so the user knows what to do', () {
-        final message = Validators.email('me@gmail.com', allowedDomains: allowed);
+        final message =
+            Validators.email('me@gmail.com', allowedDomains: allowed);
         expect(message, contains('kpriet.ac.in'));
       });
     });
@@ -100,6 +119,16 @@ void main() {
       expect(AppFailure.permission.isRetryable, isFalse);
       expect(AppFailure.notFound.isRetryable, isFalse);
       expect(AppFailure.offline.isRetryable, isTrue);
+    });
+
+    test('disabled anonymous auth explains that guest access is unavailable',
+        () {
+      final failure = FailureMapper.map(
+        FirebaseAuthException(code: 'admin-restricted-operation'),
+      );
+
+      expect(failure.message, contains('Guest access is not enabled'));
+      expect(failure.isRetryable, isFalse);
     });
   });
 }

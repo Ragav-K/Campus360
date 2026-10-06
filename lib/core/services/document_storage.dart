@@ -67,13 +67,16 @@ class DocumentStorage {
     var cleaned = fileName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
     // A run of dots is the traversal idiom, and a leading dot makes a hidden
     // file; neither is anything a student meant to type.
-    cleaned = cleaned.replaceAll(RegExp(r'\.{2,}'), '.').replaceAll(RegExp(r'^[._-]+'), '');
+    cleaned = cleaned
+        .replaceAll(RegExp(r'\.{2,}'), '.')
+        .replaceAll(RegExp(r'^[._-]+'), '');
     // "???" sanitises to "___" — non-empty, but it names nothing, so fall back
     // rather than storing a file called three underscores.
     return RegExp(r'[A-Za-z0-9]').hasMatch(cleaned) ? cleaned : 'document';
   }
 
-  String publicUrlFor(String path) => '$projectUrl/storage/v1/object/public/$bucket/$path';
+  String publicUrlFor(String path) =>
+      '$projectUrl/storage/v1/object/public/$bucket/$path';
 
   /// Uploads [file] and returns its public URL.
   ///
@@ -119,12 +122,18 @@ class DocumentStorage {
     final http.StreamedResponse response;
     try {
       response = await _client.send(request);
-    } on SocketException {
-      throw AppFailure.offline;
+    } on SocketException catch (e) {
+      throw AppFailure(
+        kind: FailureKind.upload,
+        message: 'The print storage service cannot be reached. If your '
+            'internet is working, tell the campus office.',
+        debug: e.message,
+      );
     } on http.ClientException catch (e) {
       throw AppFailure(
         kind: FailureKind.upload,
-        message: "The document couldn't be uploaded. Check your connection and try again.",
+        message: 'The connection to print storage was interrupted. Try again; '
+            'if it keeps happening, tell the campus office.',
         debug: e.message,
       );
     }
