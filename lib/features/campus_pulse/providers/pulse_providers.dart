@@ -16,14 +16,17 @@ final activePulseProvider = StreamProvider<List<PulseUpdate>>(
   (ref) => ref.watch(pulseRepositoryProvider).watchActive(),
 );
 
-final pulseDetailProvider = StreamProvider.autoDispose.family<PulseUpdate?, String>(
+final pulseDetailProvider =
+    StreamProvider.autoDispose.family<PulseUpdate?, String>(
   (ref, id) => ref.watch(pulseRepositoryProvider).watchOne(id),
 );
 
 /// Most recent live update for a location — powers the status shown on map
 /// markers and location detail (§8).
-final locationPulseProvider = StreamProvider.autoDispose.family<PulseUpdate?, String>(
-  (ref, locationId) => ref.watch(pulseRepositoryProvider).watchForLocation(locationId),
+final locationPulseProvider =
+    StreamProvider.autoDispose.family<PulseUpdate?, String>(
+  (ref, locationId) =>
+      ref.watch(pulseRepositoryProvider).watchForLocation(locationId),
 );
 
 // ---- filtering ------------------------------------------------------------
@@ -52,18 +55,29 @@ final filteredPulseProvider = Provider<AsyncValue<List<PulseUpdate>>>((ref) {
 /// True when a filter or search is narrowing the list — lets the empty state
 /// say "no results for that filter" instead of "nothing is happening".
 final pulseFilterActiveProvider = Provider<bool>((ref) =>
-    ref.watch(pulseCategoryFilterProvider) != null || ref.watch(pulseSearchProvider).trim().isNotEmpty);
+    ref.watch(pulseCategoryFilterProvider) != null ||
+    ref.watch(pulseSearchProvider).trim().isNotEmpty);
 
-/// Cards for the home carousel (§36): highest priority first, and only ones
-/// attached to a location, since each card leads with the place name.
+/// Selects the cards shown in the home carousel from the repository-ordered
+/// live feed.
+///
+/// Campus-wide alerts created in the dashboard do not need a location, so they
+/// must remain eligible here. The card falls back to the update title when no
+/// location name is present.
+List<PulseUpdate> selectHomePulseHighlights(
+  List<PulseUpdate> updates, {
+  int limit = 6,
+}) =>
+    updates.take(limit).toList(growable: false);
+
+/// Cards for the home carousel (§36): highest priority first, including both
+/// location-specific crowd updates and campus-wide dashboard alerts.
 ///
 /// Capped at 6 — enough to be worth swiping, few enough that the dots stay
 /// readable and nobody has to swipe through the whole feed.
-final homePulseHighlightsProvider = Provider<AsyncValue<List<PulseUpdate>>>((ref) {
-  return ref.watch(activePulseProvider).whenData((updates) {
-    final located = updates.where((u) => (u.locationName ?? '').isNotEmpty).toList();
-    return located.take(6).toList();
-  });
+final homePulseHighlightsProvider =
+    Provider<AsyncValue<List<PulseUpdate>>>((ref) {
+  return ref.watch(activePulseProvider).whenData(selectHomePulseHighlights);
 });
 
 /// Ticks once a minute so relative timestamps ("12 min ago") and expiry

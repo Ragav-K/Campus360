@@ -23,8 +23,16 @@ service cloud.firestore {
     function role() {
       return request.auth.token.role;
     }
+    // Bootstrap administrator for the deployed Campus Desk dashboard. Keep
+    // this as an exact account match: the college email domain as a whole must
+    // not receive administrative write access.
+    function isCampusDeskAdmin() {
+      return signedIn()
+             && request.auth.token.email is string
+             && request.auth.token.email.lower() == 'kpriet@kpriet.ac.in';
+    }
     function isAdmin() {
-      return signedIn() && role() == 'admin';
+      return signedIn() && (role() == 'admin' || isCampusDeskAdmin());
     }
     function isStaff() {
       return signedIn() && (role() == 'printShopStaff' || role() == 'admin');
