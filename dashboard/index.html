@@ -7,7 +7,7 @@
     <title>Campus360 · Crowd Counter</title>
     <!-- ?v= busts the 5-minute Cache-Control on css/js set in firebase.json.
          Bump it whenever style.css or app.js changes. -->
-    <link rel="stylesheet" href="style.css?v=4" />
+    <link rel="stylesheet" href="style.css?v=5" />
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>"
@@ -15,13 +15,13 @@
   </head>
   <body>
     <!-- Sign in -->
-    <main id="login-view" class="view centered" hidden>
+    <main id="login-view" class="view centered">
       <form id="login-form" class="card login-card" autocomplete="on">
         <div class="brand">
           <div class="brand-mark">📡</div>
           <div>
             <h1>Campus360</h1>
-            <p class="muted">Crowd counter</p>
+            <p class="muted">Crowd counter & desk manager</p>
           </div>
         </div>
 
@@ -52,13 +52,13 @@
       </form>
     </main>
 
-    <!-- Counter -->
-    <div id="app-view" class="view" hidden>
+    <!-- Counter & Desk Manager -->
+    <div id="app-view" class="view">
       <header class="topbar">
         <div class="brand">
           <div class="brand-mark small">📡</div>
           <div>
-            <h1>Crowd counter</h1>
+            <h1>Campus desk</h1>
             <p class="muted" id="signed-in-as"></p>
           </div>
         </div>
@@ -70,8 +70,11 @@
 
       <nav class="tabs" role="tablist">
         <button class="tab active" data-tab="crowd" role="tab" type="button">Crowd counter</button>
+        <button class="tab" data-tab="events" role="tab" type="button">
+          Events & Alerts <span id="events-badge" class="badge">0</span>
+        </button>
         <button class="tab" data-tab="print" role="tab" type="button">
-          Print queue <span id="queue-badge" class="badge" hidden>0</span>
+          Print queue <span id="queue-badge" class="badge">0</span>
         </button>
       </nav>
 
@@ -79,9 +82,9 @@
 
       <!-- Shown when signed in without the counter role. -->
       <section id="no-permission" class="card notice" hidden>
-        <h2>This account can't update counts</h2>
+        <h2>This account can't update desk data</h2>
         <p class="muted">
-          You're signed in, but this account doesn't hold the counter role, so the campus database
+          You're signed in, but this account doesn't hold the counter/staff role, so the campus database
           will reject any change. Sign in with the desk account instead.
         </p>
       </section>
@@ -100,8 +103,114 @@
         </footer>
       </div>
 
+      <!-- Events & Alerts -->
+      <div id="panel-events" class="panel">
+        <div class="events-toolbar">
+          <button id="btn-toggle-event-form" class="btn primary" type="button">+ New Event / Alert</button>
+          <div class="filters" id="events-filters">
+            <button class="pill-btn active" data-event-filter="all" type="button">All</button>
+            <button class="pill-btn" data-event-filter="event" type="button">Events</button>
+            <button class="pill-btn" data-event-filter="alert" type="button">Alerts</button>
+            <button class="pill-btn" data-event-filter="notice" type="button">Notices</button>
+          </div>
+          <span class="muted" id="events-summary"></span>
+        </div>
+
+        <!-- Event Creation Form Card -->
+        <section id="event-form-card" class="card form-card">
+          <div class="form-header">
+            <h2>Post New Event or Alert</h2>
+            <button id="btn-close-event-form" class="btn ghost icon-only" type="button" aria-label="Close form">✕</button>
+          </div>
+
+          <form id="create-event-form">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="event-title">Title *</label>
+                <input id="event-title" type="text" placeholder="e.g. Annual Tech Symposium 2026" required />
+              </div>
+
+              <div class="form-group">
+                <label for="event-category">Category *</label>
+                <select id="event-category" required>
+                  <option value="event">Event</option>
+                  <option value="alert">Alert</option>
+                  <option value="notice">Notice</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="event-status">Severity / Status *</label>
+                <select id="event-status" required>
+                  <option value="information">Information (Blue)</option>
+                  <option value="warning">Warning (Amber)</option>
+                  <option value="emergency">Emergency (Red)</option>
+                  <option value="available">Open / Available (Green)</option>
+                  <option value="closed">Closed / Postponed (Gray)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="event-priority">Priority *</label>
+                <select id="event-priority" required>
+                  <option value="0">Normal (Info)</option>
+                  <option value="1">High</option>
+                  <option value="2">Important</option>
+                  <option value="3">Emergency (Top Banner)</option>
+                </select>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="event-description">Description *</label>
+                <textarea id="event-description" rows="3" placeholder="Provide event details, schedule, or instructions for students..." required></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="event-location">Campus Location (Optional)</label>
+                <select id="event-location">
+                  <option value="">-- Campus-wide (No specific location) --</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="event-duration">Expires After</label>
+                <select id="event-duration">
+                  <option value="24" selected>24 Hours (1 Day)</option>
+                  <option value="12">12 Hours</option>
+                  <option value="48">48 Hours (2 Days)</option>
+                  <option value="168">7 Days</option>
+                  <option value="0">Never (Manual Deactivation)</option>
+                </select>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="event-image">Image URL (Optional)</label>
+                <input id="event-image" type="url" placeholder="https://example.com/banner.jpg" />
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <p id="event-form-error" class="error" hidden></p>
+              <button id="btn-submit-event" class="btn primary" type="submit">Publish to Campus Pulse</button>
+              <button id="btn-cancel-event" class="btn ghost" type="button">Cancel</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Events List -->
+        <section id="events-list" class="events-list" aria-live="polite"></section>
+
+        <p id="events-empty" class="muted centered-text" hidden>
+          No active events or alerts right now.
+        </p>
+
+        <footer class="foot muted">
+          Events and alerts published here sync immediately to the Campus Pulse tab on all student devices.
+        </footer>
+      </div>
+
       <!-- Print queue -->
-      <div id="panel-print" class="panel" hidden>
+      <div id="panel-print" class="panel">
         <div class="queue-toolbar">
           <div class="filters" id="queue-filters">
             <button class="pill-btn active" data-filter="active" type="button">Active</button>
@@ -124,6 +233,6 @@
       </div>
     </div>
 
-    <script type="module" src="app.js?v=6"></script>
+    <script type="module" src="app.js?v=10"></script>
   </body>
 </html>

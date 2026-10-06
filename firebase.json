@@ -8,6 +8,7 @@
     "rules": "storage.rules"
   },
   "hosting": {
+    "site": "campus360-app",
     "public": "dashboard",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "headers": [
